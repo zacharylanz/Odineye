@@ -49,6 +49,17 @@ def map_group_to_ttps(intrusion_sets, attack_patterns, relationships):
     
     return group_to_ttps, all_ttps
 
+# Function to assign risk rating based on TTP frequency
+def assign_risk_rating(frequency):
+    if frequency >= 5:
+        return "Critical"
+    elif frequency >= 3:
+        return "High"
+    elif frequency >= 1:
+        return "Medium"
+    else:
+        return "Low"
+
 # Function to create the DataFrame with TTPs, group usage, frequency, and kill chain phases
 def create_ttp_df(all_ttps, group_to_ttps, user_specified_groups):
     # Create the DataFrame with TTP IDs, names, and kill chain phases
@@ -63,6 +74,9 @@ def create_ttp_df(all_ttps, group_to_ttps, user_specified_groups):
 
     # Calculate the frequency of each TTP across the user-specified groups
     ttp_df['TTP Frequency'] = ttp_df[user_specified_groups].apply(lambda row: row.tolist().count('yes'), axis=1)
+
+    # Assign risk ratings based on TTP frequency
+    ttp_df['Risk Rating'] = ttp_df['TTP Frequency'].map(assign_risk_rating)
 
     return ttp_df
 
