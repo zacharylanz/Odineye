@@ -24,7 +24,7 @@ def map_group_to_ttps(intrusion_sets, attack_patterns, relationships):
     attack_pattern_dict = {item['id']: item for item in attack_patterns if item['type'] == 'attack-pattern'}
 
     group_to_ttps = {}
-    all_ttps = set()
+    all_ttps = {}
 
     for relationship in relationships:
         if (relationship['type'] == 'relationship' and 
@@ -37,29 +37,33 @@ def map_group_to_ttps(intrusion_sets, attack_patterns, relationships):
 
             group_name = intrusion_set_dict[group_id]['name']
             ttp_external_id = attack_pattern_dict[ttp_id]['external_references'][0]['external_id']
+            ttp_name = attack_pattern_dict[ttp_id]['name']
+            kill_chain_phases = ", ".join([phase['phase_name'] for phase in attack_pattern_dict[ttp_id].get('kill_chain_phases', [])])
 
-            all_ttps.add(ttp_external_id)
+            all_ttps[ttp_external_id] = {'name': ttp_name, 'kill_chain_phases': kill_chain_phases}
 
             if group_name not in group_to_ttps:
                 group_to_ttps[group_name] = []
 
             group_to_ttps[group_name].append(ttp_external_id)
     
-    return group_to_ttps, sorted(all_ttps)
+    return group_to_ttps, all_ttps
 
-# Function to create the DataFrame with TTPs, group usage, and frequency
+# Function to create the DataFrame with TTPs, group usage, frequency, and kill chain phases
 def create_ttp_df(all_ttps, group_to_ttps, user_specified_groups):
-    ttp_df = pd.DataFrame(index=all_ttps)
+    # Create the DataFrame with TTP IDs, names, and kill chain phases
+    ttp_df = pd.DataFrame({
+        'TTP ID': list(all_ttps.keys()), 
+        'TTP Name': [details['name'] for details in all_ttps.values()],
+        'Kill Chain Phases': [details['kill_chain_phases'] for details in all_ttps.values()]
+    })
     
     for group in user_specified_groups:
-        ttp_df[group] = ttp_df.index.map(lambda ttp: 'yes' if ttp in group_to_ttps.get(group, []) else 'no')
+        ttp_df[group] = ttp_df['TTP ID'].map(lambda ttp: 'yes' if ttp in group_to_ttps.get(group, []) else 'no')
 
     # Calculate the frequency of each TTP across the user-specified groups
-    ttp_df['TTP Frequency'] = ttp_df.apply(lambda row: row[user_specified_groups].tolist().count('yes'), axis=1)
+    ttp_df['TTP Frequency'] = ttp_df[user_specified_groups].apply(lambda row: row.tolist().count('yes'), axis=1)
 
-    ttp_df.reset_index(inplace=True)
-    ttp_df.rename(columns={'index': 'TTP ID'}, inplace=True)
-    
     return ttp_df
 
 # Function to export the DataFrame to an Excel file
@@ -74,9 +78,9 @@ def export_to_excel(df, filename='threat_profile.xlsx'):
 # Main execution
 if __name__ == "__main__":
     # Paths to the relevant folders in the cloned MITRE CTI repository
-    intrusion_set_path = 'cti/enterprise-attack/intrusion-set'
-    attack_pattern_path = 'cti/enterprise-attack/attack-pattern'
-    relationship_path = 'cti/enterprise-attack/relationship'
+    intrusion_set_path = 'mitre_cti/enterprise-attack/intrusion-set'
+    attack_pattern_path = 'mitre_cti/enterprise-attack/attack-pattern'
+    relationship_path = 'mitre_cti/enterprise-attack/relationship'
 
     # Load the datasets
     intrusion_sets = load_json_files_from_directory(intrusion_set_path)
