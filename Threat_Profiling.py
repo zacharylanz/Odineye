@@ -87,14 +87,30 @@ if __name__ == "__main__":
     attack_patterns = load_json_files_from_directory(attack_pattern_path)
     relationships = load_json_files_from_directory(relationship_path)
 
-    # Example user-specified groups (Replace with actual user input)
-    user_specified_groups = ['APT29', 'APT28', 'FIN6']
+    # Create a dictionary of all available adversary group names (case-insensitive)
+    available_groups = {item['name'].lower(): item['name'] for item in intrusion_sets if item['type'] == 'intrusion-set'}
 
-    # Map groups to their TTPs and get a list of all TTPs
-    group_to_ttps, all_ttps = map_group_to_ttps(intrusion_sets, attack_patterns, relationships)
+    # Prompt user to input adversary groups
+    user_input = input("Enter the names of the adversaries you want to include, separated by commas: ")
+    user_specified_groups = [group.strip().lower() for group in user_input.split(",")]
 
-    # Create the DataFrame
-    ttp_df = create_ttp_df(all_ttps, group_to_ttps, user_specified_groups)
-    
-    # Export the DataFrame to an Excel file
-    export_to_excel(ttp_df)
+    # Validate the user input against available groups
+    valid_groups = []
+    for group in user_specified_groups:
+        if group in available_groups:
+            valid_groups.append(available_groups[group])  # Use the correct casing from the dataset
+        else:
+            print(f"Warning: '{group}' is not found in the MITRE dataset and will be excluded.")
+
+    # Check if there are valid groups left to process
+    if not valid_groups:
+        print("No valid adversary groups provided. Exiting.")
+    else:
+        # Map groups to their TTPs and get a list of all TTPs
+        group_to_ttps, all_ttps = map_group_to_ttps(intrusion_sets, attack_patterns, relationships)
+
+        # Create the DataFrame
+        ttp_df = create_ttp_df(all_ttps, group_to_ttps, valid_groups)
+        
+        # Export the DataFrame to an Excel file
+        export_to_excel(ttp_df)
